@@ -18,8 +18,8 @@
 #'    The test is right-tailed.
 #' @inheritParams breusch_pagan
 #'
-#' @return An object of \code{\link[base]{class}} "htest". If object is not
-#'    assigned, its attributes are displayed in the console as a
+#' @return An object of \code{\link[base]{class}} \code{"htest"}. If object is
+#'    not assigned, its attributes are displayed in the console as a
 #'    \code{\link[tibble]{tibble}} using \code{\link[broom]{tidy}}.
 #' @references{\insertAllCited{}}
 #' @importFrom Rdpack reprompt
@@ -34,27 +34,18 @@
 #' harvey(mtcars_lm, auxdesign = "fitted.values")
 #'
 
-harvey <- function (mainlm, auxdesign = NULL) {
+harvey <- function(mainlm, auxdesign = NA, statonly = FALSE) {
 
-  if (class(mainlm) == "lm") {
-    X <- stats::model.matrix(mainlm)
-  } else if (class(mainlm) == "list") {
-    y <- mainlm[[1]]
-    X <- mainlm[[2]]
-    badrows <- which(apply(cbind(y, X), 1, function(x) any(is.na(x), is.nan(x), is.infinite(x))))
-    if (length(badrows) > 0) {
-      warning("Rows of data containing NA/NaN/Inf values removed")
-      y <- y[-badrows]
-      X <- X[-badrows, ]
-    }
-    mainlm <- stats::lm.fit(X, y)
-  }
+  auxfitvals <- ifelse(all(is.na(auxdesign)) | is.null(auxdesign), FALSE,
+                                    auxdesign == "fitted.values")
+  processmainlm(m = mainlm, needy = auxfitvals, needyhat = auxfitvals,
+                needp = FALSE)
 
-  if (is.null(auxdesign)) {
+  if (all(is.na(auxdesign)) || is.null(auxdesign)) {
     Z <- X
   } else if (is.character(auxdesign)) {
     if (auxdesign == "fitted.values") {
-      Z <- t(t(mainlm$fitted.values))
+      Z <- t(t(yhat))
     } else stop("Invalid character value for `auxdesign`")
   } else {
     Z <- auxdesign
@@ -71,15 +62,17 @@ harvey <- function (mainlm, auxdesign = NULL) {
 
   p <- ncol(Z) - 1
   n <- nrow(Z)
-  auxresponse <- log(mainlm$residuals ^ 2)
+  auxresponse <- log(e ^ 2)
   auxres <- stats::lm.fit(Z, auxresponse)$residuals
 
   teststat <- (sum(auxresponse ^ 2) - n * mean(auxresponse) ^ 2
                - sum(auxres ^ 2)) / pracma::psi(1, 1 / 2)
-  pval <- 1 - stats::pchisq(teststat, df = p)
+  if (statonly) return(teststat)
+
+  pval <- stats::pchisq(teststat, df = p, lower.tail = FALSE)
 
   rval <- structure(list(statistic = teststat, parameter = p, p.value = pval,
                null.value = "Homoskedasticity",
-               alternative = "Heteroskedasticity"), class = "htest")
+               alternative = "greater"), class = "htest")
   broom::tidy(rval)
 }

@@ -24,14 +24,14 @@
 #'    margins of the \code{k} subsets be passed to \code{\link{blus}} as the
 #'    \code{omit} argument? If \code{TRUE} (the default), this overrides any
 #'    \code{omit} argument passed directly. If \code{FALSE}, the \code{omit}
-#'    argument must be specified and cannot be left as \code{NULL}.
+#'    argument must be specified and cannot be left as \code{NA}.
 #'
 #' @inheritParams breusch_pagan
 #' @inheritParams goldfeld_quandt
 #' @inheritParams blus
 #'
-#' @return An object of \code{\link[base]{class}} "htest". If object is not
-#'    assigned, its attributes are displayed in the console as a
+#' @return An object of \code{\link[base]{class}} \code{"htest"}. If object is
+#'    not assigned, its attributes are displayed in the console as a
 #'    \code{\link[tibble]{tibble}} using \code{\link[broom]{tidy}}.
 #' @references{\insertAllCited{}}
 #' @importFrom Rdpack reprompt
@@ -39,76 +39,40 @@
 #'
 #' @examples
 #' mtcars_lm <- lm(mpg ~ wt + qsec + am, data = mtcars)
-#' bamset(mtcars_lm, deflator = "wt", k = 3)
+#' bamset(mtcars_lm, deflator = "qsec", k = 3)
 #'
 #' # BLUS residuals cannot be computed with given `omit` argument and so
 #' # omitted indices are randomised:
-#' bamset(mtcars_lm, deflator = "wt", k = 4, omitatmargins = FALSE, omit = "last")
+#' bamset(mtcars_lm, deflator = "qsec", k = 4, omitatmargins = FALSE, omit = "last")
 #'
 
-bamset <- function(mainlm, k = 3, deflator = NULL, correct = TRUE,
-                   omitatmargins = TRUE, omit = NULL) {
+bamset <- function(mainlm, k = 3, deflator = NA, correct = TRUE,
+                   omitatmargins = TRUE, omit = NA, statonly = FALSE) {
 
-  if (!is.null(deflator)) {
-    if (class(mainlm) == "lm") {
-      y <- stats::model.response(stats::model.frame(mainlm))
-      X <- stats::model.matrix(mainlm)
-      p <- ncol(X)
-      n <- length(y)
-      hasintercept <- columnof1s(X)
-    } else if (class(mainlm) == "list") {
-      y <- mainlm[[1]]
-      X <- mainlm[[2]]
-      badrows <- which(apply(cbind(mainlm[[1]], mainlm[[2]]), 1, function(x)
-        any(is.na(x), is.nan(x), is.infinite(x))))
-      if (length(badrows) > 0) {
-        stop("NA/NaN/Inf values not permitted in data")
-      }
-      p <- ncol(X)
-      n <- length(y)
-      hasintercept <- columnof1s(X)
-      if (hasintercept[[1]]) {
-        if (hasintercept[[2]] != 1) stop("Column of 1's must be first column
+  processmainlm(m = mainlm, needy = FALSE)
+
+  hasintercept <- columnof1s(X)
+  if (class(mainlm) == "list") {
+    if (hasintercept[[1]]) {
+      if (hasintercept[[2]] != 1) stop("Column of 1's must be first column
                                          of design matrix")
-        colnames(X) <- c("(Intercept)", paste0("X", 1:(p - 1)))
-      } else {
-        colnames(X) <- paste0("X", 1:p)
-      }
-    }
-
-    if (is.numeric(deflator) && deflator == as.integer(deflator)) {
-      if (hasintercept[[1]] && deflator == 1) {
-        stop("deflator cannot be the model intercept")
-      } else if (deflator > p) {
-        stop("`deflator` is not the index of a column of design matrix")
-      }
-    } else if (is.character(deflator)) {
-      if (deflator == "(Intercept)") {
-        stop("deflator cannot be the model intercept")
-      } else if (!deflator %in% colnames(X)) {
-        stop("`deflator` is not the name of a column of design matrix")
-      }
-    } else stop("`deflator` must be integer or character")
-
-    y <- y[order(X[, deflator])]
-    X <- X[order(X[, deflator]), ]
-    mainlm <- list(y, X)
-
-  } else {
-    if (class(mainlm) == "lm") {
-      n <- length(mainlm$residuals)
-      p <- length(mainlm$coefficients)
-    } else if (class(mainlm) == "list") {
-      n <- length(mainlm[[1]])
-      p <- ncol(mainlm[[2]])
-      badrows <- which(apply(cbind(mainlm[[1]], mainlm[[2]]), 1, function(x)
-        any(is.na(x), is.nan(x), is.infinite(x))))
-      if (length(badrows) > 0) {
-        stop("NA/NaN/Inf values not permitted in data")
-      }
+      colnames(X) <- c("(Intercept)", paste0("X", 1:(p - 1)))
+    } else {
+      colnames(X) <- paste0("X", 1:p)
     }
   }
 
+  checkdeflator(deflator, X, p, hasintercept[[1]])
+
+  if (!is.na(deflator) && !is.null(deflator)) {
+    if (!is.na(suppressWarnings(as.integer(deflator)))) {
+      deflator <- as.integer(deflator)
+    }
+    e <- e[order(X[, deflator])]
+    X <- X[order(X[, deflator]), , drop = FALSE]
+  }
+
+  n <- nrow(X)
   nprime <- n - p
   min_subset_size <- as.integer(nprime / k) # called r_1 in Ramsey (1969)
   nprime_modk <- nprime %% k
@@ -123,7 +87,7 @@ bamset <- function(mainlm, k = 3, deflator = NULL, correct = TRUE,
                             length.out = v[j])
   }
   if (omitatmargins) omit <- margin_indices(v, p, sub_ind)
-  res <- blus(mainlm, omit)
+  res <- blus(mainlm = list("X" = X, "e" = e), omit)
 
   s_sq <- unlist(lapply(sub_ind, function(i, e)
     sum(e[i] ^ 2, na.rm = TRUE), e = res)) / v
@@ -131,16 +95,18 @@ bamset <- function(mainlm, k = 3, deflator = NULL, correct = TRUE,
 
   teststat <- nprime * log(s_sq_tot) - sum(v * log(s_sq))
   if (correct) {
-    scaling_constant <- 1 + sum(1 / v - 1 / nprime) / (3 * (k - 1))
+    scaling_constant <- 1 + (sum(1 / v) - 1 / nprime) / (3 * (k - 1))
     teststat <- teststat / scaling_constant
   }
 
+  if (statonly) return(teststat)
+
   df <- k - 1
-  pval <- 1 - stats::pchisq(teststat, df = df)
+  pval <- stats::pchisq(teststat, df = df, lower.tail = FALSE)
 
   rval <- structure(list(statistic = teststat, parameter = df, p.value = pval,
                          null.value = "Homoskedasticity",
-                         alternative = "Heteroskedasticity", method = "BAMSET"),
+                         alternative = "greater", method = "BAMSET"),
                     class = "htest")
   broom::tidy(rval)
 }

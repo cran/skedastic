@@ -8,26 +8,29 @@
 #' in which the response variable is the vector of standardised squared
 #' residuals \eqn{e_i^2/\hat{\sigma}^2} from the original OLS
 #' model and the design matrix is some function of \eqn{Z}, an
-#' \eqn{n \times q} matrix consisting of \eqn{q} exogenous variables.
+#' \eqn{n \times q} matrix consisting of \eqn{q} exogenous variables, appended
+#' to a column of ones.
 #' The test statistic is half the residual sum of squares from this auxiliary
 #' regression. Under the null hypothesis of homoskedasticity, the distribution
 #' of the test statistic is asymptotically chi-squared with \eqn{q} degrees of
 #' freedom. The test is right-tailed.
-#' @param errorfun A character describing the functional form of
-#'    the error variance under the heteroskedastic alternative. Possible values
-#'    are \code{"additive"} (the default) and
-#'    \code{"multiplicative"}, corresponding to the two cases considered in
-#'    \insertCite{Cook83;textual}{skedastic}, or the name of a function in the
-#'    environment (passed as a character). If the name of a function, it
-#'    will be applied to auxiliary design element \eqn{z_{ij}} to obtain the
-#'    corresponding element of \eqn{D}, according to the notation used in
-#'    \insertCite{Cook83;textual}{skedastic}. The value \code{"additive"}
-#'    corresponds to the function \code{identity} and \code{"multiplicative"}
-#'    to the function \code{log}. Partial matching is NOT used.
+#' @param hetfun A character describing the form of \eqn{w(\cdot)}, the error
+#'    variance function under the heteroskedastic alternative. Possible values
+#'    are \code{"mult"} (the default), corresponding to
+#'    \eqn{w(Z_i,\lambda)=\exp\left\{\sum_{j=1}^{q}\lambda_j Z_{ij}\right\}},
+#'    \code{"add"}, corresponding to
+#'    \eqn{w(Z_i,\lambda)=\left(1+\sum_{j=1}^{q} \lambda_j Z_{ij}\right)^2}, and
+#'    \code{"logmult"}, corresponding to
+#'    \eqn{w(Z_i,\lambda)=\exp\left\{\sum_{j=1}^{q}\lambda_j \log Z_{ij}\right\}}.
+#'    The multiplicative and log-multiplicative cases are considered in
+#'    \insertCite{Cook83;textual}{skedastic}; the additive case is discussed,
+#'    \emph{inter alia}, by \insertCite{Griffiths86;textual}{skedastic}.
+#'    Results for the additive and multiplicative models are identical for this
+#'    test. Partial matching is used.
 #' @inheritParams breusch_pagan
 #'
-#' @return An object of \code{\link[base]{class}} "htest". If object is not
-#'    assigned, its attributes are displayed in the console as a
+#' @return An object of \code{\link[base]{class}} \code{"htest"}. If object is
+#'    not assigned, its attributes are displayed in the console as a
 #'    \code{\link[tibble]{tibble}} using \code{\link[broom]{tidy}}.
 #' @references{\insertAllCited{}}
 #' @importFrom Rdpack reprompt
@@ -35,42 +38,35 @@
 #' @seealso \code{\link[car:ncvTest]{car::ncvTest}}, which implements the same
 #' test. Calling \code{car::ncvTest} with \code{var.formula} argument omitted
 #' is equivalent to calling \code{skedastic::cook_weisberg} with
-#' \code{auxdesign = "fitted.values", errorfun = "additive"}. Calling
+#' \code{auxdesign = "fitted.values", hetfun = "additive"}. Calling
 #' \code{car::ncvTest} with \code{var.formula = ~ X} (where \code{X} is the
 #' design matrix of the linear model with the intercept column omitted) is
 #' equivalent to calling \code{skedastic::cook_weisberg} with default
-#' \code{auxdesign} and \code{errorfun} values. The
-#' \code{errorfun = "multiplicative"} option has no equivalent in
+#' \code{auxdesign} and \code{hetfun} values. The
+#' \code{hetfun = "multiplicative"} option has no equivalent in
 #' \code{car::ncvTest}.
 #'
 #' @examples
 #' mtcars_lm <- lm(mpg ~ wt + qsec + am, data = mtcars)
 #' cook_weisberg(mtcars_lm)
-#' cook_weisberg(mtcars_lm, auxdesign = "fitted.values", errorfun = "multiplicative")
+#' cook_weisberg(mtcars_lm, auxdesign = "fitted.values", hetfun = "logmult")
 #'
 
-cook_weisberg <- function (mainlm, auxdesign = NULL, errorfun = "additive") {
+cook_weisberg <- function(mainlm, auxdesign = NA,
+                  hetfun = c("mult", "add", "logmult"), statonly = FALSE) {
 
-  if (class(mainlm) == "lm") {
-    X <- stats::model.matrix(mainlm)
-  } else if (class(mainlm) == "list") {
-    y <- mainlm[[1]]
-    X <- mainlm[[2]]
-    badrows <- which(apply(cbind(y, X), 1, function(x) any(is.na(x),
-                                                    is.nan(x), is.infinite(x))))
-    if (length(badrows) > 0) {
-      warning("Rows of data containing NA/NaN/Inf values removed")
-      y <- y[-badrows]
-      X <- X[-badrows, ]
-    }
-    mainlm <- stats::lm.fit(X, y)
-  }
+  hetfun <- match.arg(hetfun, c("mult", "add", "logmult"))
 
-  if (is.null(auxdesign)) {
+  auxfitvals <- ifelse(all(is.na(auxdesign)) | is.null(auxdesign), FALSE,
+                                    auxdesign == "fitted.values")
+  processmainlm(m = mainlm, needy = auxfitvals, needyhat = auxfitvals,
+                needp = FALSE)
+
+  if (all(is.na(auxdesign)) || is.null(auxdesign)) {
     Z <- X
   } else if (is.character(auxdesign)) {
     if (auxdesign == "fitted.values") {
-      Z <- t(t(mainlm$fitted.values))
+      Z <- t(t(yhat))
     } else stop("Invalid character value for `auxdesign`")
   } else {
     Z <- auxdesign
@@ -81,29 +77,30 @@ cook_weisberg <- function (mainlm, auxdesign = NULL, errorfun = "additive") {
 
   hasintercept <- columnof1s(Z)
   if (hasintercept[[1]]) {
-    Z <- Z[, -hasintercept[[2]]]
+    Z <- Z[, -hasintercept[[2]], drop = FALSE]
   }
 
   q <- ncol(Z)
   n <- nrow(Z)
 
-  if (errorfun == "additive") {
+  if (hetfun == "mult") {
     Z <- cbind(1, Z)
-  } else if (errorfun == "multiplicative") {
+  } else if (hetfun == "logmult") {
     Z <- cbind(1, log(Z))
-  } else {
-    Z <- cbind(1, get(errorfun)(Z))
-  }
+  } else if (hetfun == "add") {
+    Z <- cbind(1, 2 * Z)
+  } else stop("Invalid hetfun argument")
 
-  sigma_hatsq <- sum(mainlm$residuals ^ 2) / n
-  std_res_sq <- mainlm$residuals ^ 2 / sigma_hatsq
+  sigma_hatsq <- sum(e ^ 2) / n
+  std_res_sq <- e ^ 2 / sigma_hatsq
   auxres <- stats::lm.fit(Z, std_res_sq)$residuals
   teststat <- (sum(std_res_sq ^ 2) - n * mean(std_res_sq) ^ 2 - sum(auxres ^ 2)) / 2
-  method <- errorfun
-  pval <- 1 - stats::pchisq(teststat, df = q)
+  if (statonly) return(teststat)
+  method <- hetfun
+  pval <- stats::pchisq(teststat, df = q, lower.tail = FALSE)
   rval <- structure(list(statistic = teststat, parameter = q, p.value = pval,
                          null.value = "Homoskedasticity",
-                         alternative = "Heteroskedasticity", method = method),
+                         alternative = "greater", method = method),
                          class = "htest")
   broom::tidy(rval)
 }
