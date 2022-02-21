@@ -1,7 +1,7 @@
-6065e0e35e01d3d0db24fa60b594aca6 *DESCRIPTION
+94eab8a207455d3af3ccfbe862c06ded *DESCRIPTION
 7d52d3cbeb6a283260d05bed4a0147a4 *LICENSE
 545df948c0209b5f2c3bb1efdd2bea14 *NAMESPACE
-4a8c361eb494b82abc7e6fbc2fd0887b *NEWS.md
+735171699895c7490859b64e1bafab0d *NEWS.md
 7a320c185187f9a95e3f78659c1991ae *R/anscombe.R
 968c6d4cdaf751e656c88438a7ee9dd1 *R/bamset.R
 cd715a238affe2bcbaa97813fb8af458 *R/bickel.R
@@ -12,7 +12,7 @@ ec048192282e61a4f8775cf30c547348 *R/carapeto_holt.R
 807b93be2fa1c4e2c29a81e94d83b445 *R/data.R
 cb4d2051a30f68de64e20e857d0db213 *R/diblasi_bowman.R
 506e1afab85381456fb91d01e159900d *R/dufour_etal.R
-064a3e344b5612a92de33af3210801cb *R/evans_king.R
+56249c24f758f5741d3a9bdcf1320742 *R/evans_king.R
 610f0a52cbe4a6fac7b9ef1bea87982f *R/glejser.R
 0259064484eca7810fab8d5dd50807db *R/globals.R
 0dfea9aaf7b35dabd19f2f44417a7bf9 *R/godfrey_orme.R
@@ -23,8 +23,8 @@ c4a0fa1a19b8023ef782a7102034ca3c *R/hetplot.R
 5dea12e503c10f97560c05303041f4da *R/honda.R
 4cc73f6b51303fbaecb6cf685cc71f7e *R/horn.R
 e36207331848c136cebd1e893d91b0e4 *R/li_yao.R
-7309165070db2c3509478c423581e092 *R/myutils.R
-627378ee28db8ce9c81dd6388593ac6c *R/pRQF.R
+e57a73c0ed0ae444f67d4aae383b6681 *R/myutils.R
+fcfc8dfe61d716fe5169f70f24a250a0 *R/pRQF.R
 bae2e78a3cc219b516becf9a82ce4a45 *R/peaks.R
 18e8e5ae02b6958578d66287dcfd02f1 *R/rackauskas_zuokas.R
 f54f6cbad181a687675910f22d362fbc *R/simonoff_tsai.R
@@ -37,7 +37,7 @@ e2aacf42914dc530a65f53c1099e2193 *R/twosidedpval.R
 52acf4f88facf0c7720f0af3d5441273 *R/yuce.R
 fbe3ff0c33649e38b4d45d8bd0e9e303 *R/zhou_etal.R
 6c27f97f5766560dd75398a967e8fc9a *README.md
-b7b962d76bf5e68edd4090fc83d8a761 *build/partial.rdb
+189a0481b1d4f788495005ba13444da1 *build/partial.rdb
 5d4fc092bd9303b69e2b489dd2af7c88 *data/T_alpha.rda
 b890db650414e83232f32c1c43866b29 *data/dpeakdat.rda
 fddef6c634c3ffd26434da20e90bdb86 *inst/CITATION
@@ -78,7 +78,7 @@ cf2017dfd0f3878ad38ba97b019e44a6 *man/verbyla.Rd
 93de3d27fba1c147776788b72bdb3ee4 *man/wilcox_keselman.Rd
 ae345bfbe643b9bc54b8b8065b0ff2b2 *man/yuce.Rd
 f59380362ba49daab49eb04be7966534 *man/zhou_etal.Rd
-161803796d11fb0d744c55f2e7b745ae *tests/testthat.R
+1a9515942f7f51d94cbe2dd008db5c1d *tests/testthat.R
 6fc8db253b8960a36282155eb6f4cb15 *tests/testthat/test-anscombe.R
 0fd271782a9140fc6ae0d765b081d329 *tests/testthat/test-bamset.R
 9831dd41e055320372fd1b67a60abaf4 *tests/testthat/test-bickel.R
