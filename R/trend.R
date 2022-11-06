@@ -4,15 +4,17 @@
 #'   function for \eqn{D=\sum_{i=1}^{n} (R_i - i)^2}, the nonparametric trend
 #'   statistic proposed by \insertCite{Lehmann75;textual}{skedastic}, under the
 #'   assumption that the ranks \eqn{R_i} are computed on a series of \eqn{n}
-#'   independent and identically distributed random variables with no ties. The
-#'   function is used within \code{\link{horn}} in computing \eqn{p}-values for
-#'   Horn's nonparametric test for heteroskedasticity in a linear regression
-#'   model \insertCite{Horn81}{skedastic}. The support of \eqn{D}
-#'   consists of consecutive even numbers from 0 to \eqn{\frac{n(n-1)(n+1)}{3}},
-#'   with the exception of the case \eqn{n=3}, when the value 4 is excluded from
-#'   the support. Note that computation speed for \code{k = "all"} is about the
-#'   same as when \code{k} is set to an individual integer value, because the
-#'   entire distribution is still computed in the latter case.
+#'   independent and identically distributed random variables with no ties.
+#'
+#' @details The function is used within \code{\link{horn}} in computing
+#'   \eqn{p}-values for Horn's nonparametric test for heteroskedasticity in a
+#'   linear regression model \insertCite{Horn81}{skedastic}. The support of
+#'   \eqn{D} consists of consecutive even numbers from 0 to
+#'   \eqn{\frac{n(n-1)(n+1)}{3}}, with the exception of the case \eqn{n=3},
+#'   when the value 4 is excluded from the support. Note that computation speed
+#'   for \code{k = "all"} is about the same as when \code{k} is set to an
+#'   individual integer value, because the entire distribution is still
+#'   computed in the latter case.
 #'
 #' @param n A positive integer representing the number of observations in the
 #'   series. Note that computation time increases rapidly with \eqn{n} and is
@@ -32,12 +34,12 @@
 #' @seealso \code{\link{horn}}
 #'
 #' @examples
-#' prob <- dDtrend(k = "all", n = 9)
+#' prob <- dDtrend(k = "all", n = 6)
 #' values <- as.integer(names(prob))
 #' plot(c(values[1], values[1]), c(0, prob[1]), type = "l",
 #'   axes = FALSE, xlab = expression(k), ylab = expression(Pr(D == k)),
-#'   xlim = c(0, 250), yaxs = "i", ylim = c(0, 1.05 * max(prob)))
-#'   axis(side = 1, at = seq(0, 250, 25), las = 2)
+#'   xlim = c(0, 70), yaxs = "i", ylim = c(0, 1.05 * max(prob)))
+#'   axis(side = 1, at = seq(0, 70, 10), las = 2)
 #' for (i in seq_along(values)) {
 #'  lines(c(values[i], values[i]), c(0, prob[i]))
 #' }
@@ -66,6 +68,13 @@ dDtrend <- function(k = "all", n, override = FALSE) {
     stop("Invalid value for n; try an integer")
   } else if (n > 11 && !override) {
     stop("Computation of dDtrend is prohibitively slow for n > 11. Operation aborted. If user insists on proceeding, call function again with `override` set to `TRUE`.")
+  }
+
+  if (!requireNamespace("arrangements", quietly = TRUE)) {
+    stop(
+      "Package \"arrangements\" must be installed to use this function.",
+      call. = FALSE
+    )
   }
 
   perms <- arrangements::permutations(n, n)
@@ -128,15 +137,12 @@ dDtrend <- function(k = "all", n, override = FALSE) {
 #' @seealso \code{\link{dDtrend}}, \code{\link{horn}}
 #'
 #' @examples
-#' # For an independent sample of size 9, the probability that D is <= 50 is
-#' # 0.05399857
-#' pDtrend(k = 50, n = 9)
+#' # For an independent sample of size 6, the probability that D is <= 50 is
+#' # 0.8222
+#' pDtrend(k = 50, n = 6)
 #' # Normal approximation of the above with continuity correction is
-#' # 0.05193808
-#' pDtrend(k = 50, n = 9, exact = FALSE)
-#' # For an independent sample of size 50, the probability that D is >= 20000 is
-#' # is 0.6093583
-#' pDtrend(k = 2e4, n = 50, lower.tail = FALSE)
+#' # 0.8145
+#' pDtrend(k = 50, n = 6, exact = FALSE)
 #'
 
 pDtrend <- function(k, n, lower.tail = TRUE, exact = (n <= 10), tiefreq = NA,
